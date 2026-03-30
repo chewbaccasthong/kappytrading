@@ -79,7 +79,7 @@ def api_signals():
 
 @app.route("/api/agents")
 def api_agents():
-    """Per-agent performance with grading data."""
+    """Per-agent performance with grading data and signal direction breakdown."""
     # DB signal stats
     with db.Session() as session:
         from utils.database import SignalRecord
@@ -96,6 +96,22 @@ def api_agents():
         )
         db_agents = {s.agent_name: s for s in signal_stats}
 
+        # Signal direction counts per agent
+        direction_stats = (
+            session.query(
+                SignalRecord.agent_name,
+                SignalRecord.side,
+                func.count(SignalRecord.id).label("count"),
+            )
+            .group_by(SignalRecord.agent_name, SignalRecord.side)
+            .all()
+        )
+        direction_map = {}
+        for row in direction_stats:
+            if row.agent_name not in direction_map:
+                direction_map[row.agent_name] = {"yes": 0, "no": 0}
+            direction_map[row.agent_name][row.side] = row.count
+
     # Grader report (accuracy, recommended weights)
     grader_report = {r["agent"]: r for r in grader.get_agent_report()}
 
@@ -104,6 +120,8 @@ def api_agents():
     for name in all_names:
         db_s = db_agents.get(name)
         gr = grader_report.get(name, {})
+        dirs = direction_map.get(name, {"yes": 0, "no": 0})
+        total_dir = dirs["yes"] + dirs["no"]
         agents.append({
             "name": name,
             "signal_count": db_s.signal_count if db_s else gr.get("total_signals", 0),
@@ -113,6 +131,9 @@ def api_agents():
             "correct": gr.get("correct", 0),
             "incorrect": gr.get("incorrect", 0),
             "recommended_weight": gr.get("recommended_weight", 1.0),
+            "yes_count": dirs["yes"],
+            "no_count": dirs["no"],
+            "yes_pct": round(dirs["yes"] / total_dir, 2) if total_dir else 0.5,
         })
 
     return jsonify(agents)
@@ -135,7 +156,24 @@ def api_live():
         "agent_weights": {},
         "grade_summary": grader.get_grade_summary(),
         "agent_report": grader.get_agent_report(),
+        "cycle_state": "offline",
+        "cycle_phase": "",
+        "cycle_start": None,
+        "cycle_end": None,
+        "next_cycle": None,
+        "cycle_interval": 300,
+        "signals_generated": 0,
+        "opportunities_found": 0,
     })
+
+
+@app.route("/api/activity")
+def api_activity():
+    """Live activity feed — chronological log of signals, trades, and events."""
+    limit = request.args.get("limit", 50, type=int)
+    if _orchestrator:
+        return jsonify(_orchestrator.get_activity_log(limit))
+    return jsonify([])
 
 
 @app.route("/api/grades")

@@ -11,7 +11,7 @@ This is the brain of the trading system. It:
 
 import asyncio
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import structlog
@@ -56,6 +56,20 @@ class TradingOrchestrator:
         self._last_opportunities: list[TradeOpportunity] = []
         self._live_balance: float = 0.0
         self._live_positions: list[Position] = []
+
+        # Cycle state tracking for dashboard
+        self._cycle_state: str = "idle"  # idle, researching, trading, sleeping
+        self._cycle_phase: str = ""  # detailed phase description
+        self._cycle_start_time: datetime | None = None
+        self._cycle_end_time: datetime | None = None
+        self._next_cycle_time: datetime | None = None
+        self._cycle_interval: int = 300
+        self._signals_generated: int = 0
+        self._opportunities_found: int = 0
+
+        # Activity log (in-memory ring buffer, last 200 entries)
+        self._activity_log: list[dict] = []
+        self._activity_max: int = 200
 
     def _validate_config(self):
         """Check that API credentials are configured before starting."""
@@ -168,6 +182,16 @@ class TradingOrchestrator:
                 )
             elif result is not None:
                 signals.append(result)
+                self._log_activity(
+                    "signal",
+                    f"{result.agent_name}: {result.side.value.upper()} on {market.ticker[:20]} "
+                    f"(conf {result.confidence*100:.0f}%, edge {result.edge*100:.1f}%)",
+                    agent=result.agent_name,
+                    market=market.ticker,
+                    side=result.side.value,
+                    confidence=result.confidence,
+                    edge=result.edge,
+                )
                 # Record signal in DB
                 self.db.record_signal({
                     "agent_name": result.agent_name,
@@ -296,8 +320,26 @@ class TradingOrchestrator:
             logger.error("order_failed", market=opportunity.market.ticker, error=str(e))
             return None
 
+    def _log_activity(self, event_type: str, message: str, **extra):
+        """Add an entry to the activity log."""
+        entry = {
+            "time": datetime.utcnow().isoformat(),
+            "type": event_type,
+            "message": message,
+            **extra,
+        }
+        self._activity_log.append(entry)
+        if len(self._activity_log) > self._activity_max:
+            self._activity_log = self._activity_log[-self._activity_max:]
+
     async def run_cycle(self):
         """Run one complete trading cycle: discover -> analyze -> trade."""
+        self._cycle_state = "researching"
+        self._cycle_phase = "Starting cycle"
+        self._cycle_start_time = datetime.utcnow()
+        self._signals_generated = 0
+        self._opportunities_found = 0
+        self._log_activity("cycle", "Trading cycle started")
         logger.info("cycle_start", dry_run=self.dry_run)
 
         portfolio = await self._get_portfolio()
@@ -312,34 +354,69 @@ class TradingOrchestrator:
         can_trade, reason = self.risk_manager.check_can_trade(portfolio)
         if not can_trade:
             logger.warning("trading_halted", reason=reason)
+            self._log_activity("warning", f"Trading halted: {reason}")
+            self._cycle_state = "idle"
             return
 
         # Discover and analyze markets
+        self._cycle_phase = "Scanning markets"
         markets = await self._discover_markets()
         self._last_markets = markets
+        self._log_activity("scan", f"Scanned {len(markets)} crypto markets")
         if not markets:
             logger.info("no_crypto_markets_found")
+            self._log_activity("info", "No crypto markets found")
+            self._cycle_state = "idle"
             return
 
+        self._cycle_phase = f"Analyzing {len(markets)} markets"
         opportunities = await self._find_opportunities(markets)
         self._last_opportunities = opportunities
+        self._opportunities_found = len(opportunities)
+
+        # Count total signals generated this cycle
+        self._signals_generated = sum(len(sigs) for sigs in self._last_signals.values())
+        self._log_activity(
+            "research",
+            f"Research complete: {self._signals_generated} signals, {len(opportunities)} opportunities",
+            signals=self._signals_generated,
+            opportunities=len(opportunities),
+        )
+
         if not opportunities:
             logger.info("no_opportunities_found")
+            self._log_activity("info", "No opportunities met edge threshold")
+            self._cycle_state = "idle"
+            self._cycle_end_time = datetime.utcnow()
             return
 
         # Execute top opportunities
+        self._cycle_state = "trading"
+        self._cycle_phase = "Executing trades"
         trades_placed = 0
         for opp in opportunities:
             # Re-check risk limits after each trade
             can_trade, reason = self.risk_manager.check_can_trade(portfolio)
             if not can_trade:
                 logger.info("risk_limit_reached", reason=reason)
+                self._log_activity("warning", f"Risk limit reached: {reason}")
                 break
 
             order = await self._execute_trade(opp, portfolio)
             if order:
                 trades_placed += 1
+                side_str = opp.side.value.upper()
+                self._log_activity(
+                    "trade",
+                    f"{'[DRY RUN] ' if self.dry_run else ''}Placed {side_str} on {opp.market.ticker[:20]} @ ${opp.entry_price:.2f} (edge {opp.edge*100:.1f}%)",
+                    market=opp.market.ticker,
+                    side=opp.side.value,
+                    edge=opp.edge,
+                )
 
+        self._cycle_end_time = datetime.utcnow()
+        self._cycle_state = "idle"
+        self._log_activity("cycle", f"Cycle complete: {trades_placed} trades placed")
         logger.info("cycle_complete", trades_placed=trades_placed)
 
     async def run(self, interval_seconds: int = 300):
@@ -350,12 +427,18 @@ class TradingOrchestrator:
         async with self.kalshi:
             await self._init_agents()
 
+            self._cycle_interval = interval_seconds
             while True:
                 try:
                     await self.run_cycle()
                 except Exception as e:
                     logger.error("cycle_error", error=str(e), exc_info=True)
+                    self._log_activity("error", f"Cycle error: {str(e)[:100]}")
+                    self._cycle_state = "idle"
 
+                self._cycle_state = "sleeping"
+                self._cycle_phase = f"Waiting {interval_seconds}s"
+                self._next_cycle_time = datetime.utcnow() + timedelta(seconds=interval_seconds)
                 logger.info("sleeping", seconds=interval_seconds)
                 await asyncio.sleep(interval_seconds)
 
@@ -419,4 +502,17 @@ class TradingOrchestrator:
             ],
             "grade_summary": self.grader.get_grade_summary(),
             "agent_report": self.grader.get_agent_report(),
+            # Cycle state for dashboard
+            "cycle_state": self._cycle_state,
+            "cycle_phase": self._cycle_phase,
+            "cycle_start": self._cycle_start_time.isoformat() if self._cycle_start_time else None,
+            "cycle_end": self._cycle_end_time.isoformat() if self._cycle_end_time else None,
+            "next_cycle": self._next_cycle_time.isoformat() if self._next_cycle_time else None,
+            "cycle_interval": self._cycle_interval,
+            "signals_generated": self._signals_generated,
+            "opportunities_found": self._opportunities_found,
         }
+
+    def get_activity_log(self, limit: int = 50) -> list[dict]:
+        """Return recent activity log entries."""
+        return list(reversed(self._activity_log[-limit:]))

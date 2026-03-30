@@ -8,11 +8,24 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0e17; color: #e0e6ed; }
         .header { background: linear-gradient(135deg, #0f1923 0%, #1a2332 100%); border-bottom: 1px solid #1e2d3d; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 18px; color: #00d4ff; }
+        .header h1 { font-size: 18px; color: #00d4ff; display: flex; align-items: center; gap: 8px; }
         .header-right { display: flex; gap: 16px; align-items: center; font-size: 12px; color: #8899aa; }
         .dot { width: 7px; height: 7px; border-radius: 50%; background: #00c853; display: inline-block; margin-right: 4px; animation: pulse 2s infinite; }
+        .dot.researching { animation: pulse-fast 0.6s infinite; background: #ffb300; }
+        .dot.trading { animation: pulse-fast 0.4s infinite; background: #ff6b6b; }
+        .dot.sleeping { background: #666; animation: none; }
         @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+        @keyframes pulse-fast { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
         .balance-display { font-size: 18px; font-weight: 700; color: #00d4ff; }
+        .cycle-info { font-size: 11px; color: #5a7a9a; }
+        .state-badge { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; display: inline-block; }
+        .state-idle { background: #66666644; color: #888; }
+        .state-researching { background: #ffb30044; color: #ffb300; }
+        .state-trading { background: #ff6b6b44; color: #ff6b6b; }
+        .state-sleeping { background: #00d4ff22; color: #00d4ff; }
+
+        .loading-indicator { display: inline-block; width: 14px; height: 14px; border: 2px solid #00d4ff44; border-top-color: #00d4ff; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; padding: 16px 24px; }
         .card { background: #111923; border: 1px solid #1e2d3d; border-radius: 8px; padding: 16px; }
@@ -20,6 +33,11 @@
         .card .value { font-size: 24px; font-weight: 700; }
         .card .sub { font-size: 11px; color: #5a7a9a; margin-top: 2px; }
         .positive { color: #00c853; } .negative { color: #ff4444; } .neutral { color: #8899aa; }
+
+        .cycle-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px 24px; background: #0d1520; border-bottom: 1px solid #1e2d3d; }
+        .stat-item { font-size: 12px; }
+        .stat-label { color: #5a7a9a; font-size: 10px; text-transform: uppercase; }
+        .stat-value { font-size: 18px; font-weight: 700; color: #00d4ff; margin-top: 2px; }
 
         .section { padding: 0 24px 16px; }
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -43,6 +61,10 @@
         .agent-card .name { font-size: 10px; color: #00d4ff; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .agent-card .stat { font-size: 20px; font-weight: 700; }
         .agent-card .label { font-size: 10px; color: #5a7a9a; margin-top: 2px; }
+        .direction-bar { display: flex; gap: 2px; margin: 6px 0; height: 16px; border-radius: 3px; overflow: hidden; }
+        .direction-yes { background: #00c85388; flex: var(--yes-pct); min-width: 2px; }
+        .direction-no { background: #ff444488; flex: var(--no-pct); min-width: 2px; }
+        .direction-label { font-size: 9px; color: #8899aa; text-align: center; }
 
         .grade-bar { display: flex; gap: 4px; margin-top: 8px; }
         .grade-segment { height: 24px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; min-width: 30px; }
@@ -59,6 +81,25 @@
         .opp-signals { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
         .sig-chip { padding: 2px 6px; border-radius: 3px; font-size: 10px; background: #1a2332; }
 
+        .activity-entry { padding: 10px; border-bottom: 1px solid #111923; font-size: 12px; display: flex; gap: 12px; align-items: flex-start; }
+        .activity-time { color: #5a7a9a; font-size: 11px; min-width: 120px; font-family: monospace; flex-shrink: 0; }
+        .activity-type { padding: 2px 6px; border-radius: 3px; font-size: 9px; font-weight: 600; min-width: 60px; text-align: center; flex-shrink: 0; }
+        .activity-msg { flex: 1; }
+        .type-cycle { background: #00d4ff22; color: #00d4ff; }
+        .type-signal { background: #ffb30044; color: #ffb300; }
+        .type-trade { background: #00c85322; color: #00c853; }
+        .type-scan { background: #666622; color: #999900; }
+        .type-research { background: #4488ff22; color: #4488ff; }
+        .type-warning { background: #ff666622; color: #ff6666; }
+        .type-error { background: #ff333322; color: #ff3333; }
+        .type-info { background: #66666644; color: #999; }
+
+        .histogram { margin: 16px 0; }
+        .histogram-bar { display: flex; align-items: flex-end; gap: 8px; height: 120px; }
+        .histogram-col { flex: 1; background: #00d4ff44; border-radius: 3px 3px 0 0; position: relative; }
+        .histogram-label { position: absolute; bottom: -20px; width: 100%; text-align: center; font-size: 10px; color: #5a7a9a; }
+        .histogram-value { position: absolute; top: -20px; width: 100%; text-align: center; font-size: 11px; color: #00d4ff; font-weight: 600; }
+
         .settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .setting-item label { font-size: 10px; color: #5a7a9a; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 3px; }
         .setting-item input { background: #0a0e17; border: 1px solid #1e2d3d; border-radius: 5px; padding: 7px 10px; color: #e0e6ed; font-size: 13px; width: 100%; outline: none; }
@@ -73,12 +114,32 @@
 </head>
 <body>
     <div class="header">
-        <h1>KAPPY TRADING BOT</h1>
+        <h1>
+            <span id="status-dot" class="dot"></span>
+            KAPPY TRADING BOT
+        </h1>
         <div class="header-right">
+            <span id="status-badge" class="state-badge state-idle">IDLE</span>
             <span>Balance: <span class="balance-display" id="live-balance">$0.00</span></span>
-            <span>Mode: <strong id="bot-mode">-</strong></span>
             <span>Markets: <strong id="markets-count">0</strong></span>
-            <span><span class="dot"></span>Live</span>
+            <span id="refresh-countdown" class="cycle-info">Updating...</span>
+            <span id="last-updated" class="cycle-info">Last: --:--:--</span>
+        </div>
+    </div>
+
+    <!-- Cycle Stats Bar -->
+    <div class="cycle-stats">
+        <div class="stat-item">
+            <div class="stat-label">Markets Scanned</div>
+            <div class="stat-value" id="stat-markets">0</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Signals Generated</div>
+            <div class="stat-value" id="stat-signals">0</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Opportunities Found</div>
+            <div class="stat-value" id="stat-opportunities">0</div>
         </div>
     </div>
 
@@ -112,6 +173,7 @@
                 <div class="tab active" onclick="showTab('trades')">Trades</div>
                 <div class="tab" onclick="showTab('signals')">Signals</div>
                 <div class="tab" onclick="showTab('research')">Research</div>
+                <div class="tab" onclick="showTab('activity')">Activity Feed</div>
                 <div class="tab" onclick="showTab('positions')">Positions</div>
                 <div class="tab" onclick="showTab('settings')">Settings</div>
             </div>
@@ -134,6 +196,13 @@
             <div id="research-content" class="empty-msg">No research data yet. Run a trading cycle first.</div>
         </div>
 
+        <!-- Activity Feed -->
+        <div class="card panel" id="panel-activity">
+            <div id="activity-content" style="max-height: 600px; overflow-y: auto; background: #0a0e17; border-radius: 6px;">
+                <div class="empty-msg">No activity yet. Run a trading cycle.</div>
+            </div>
+        </div>
+
         <!-- Positions -->
         <div class="card panel" id="panel-positions">
             <div id="positions-content" class="empty-msg">No open positions</div>
@@ -153,24 +222,71 @@
     </div>
 
 <script>
-const tabNames = ['trades','signals','research','positions','settings'];
-const tabTitles = {trades:'Recent Trades',signals:'Agent Signals',research:'Research & Edges',positions:'Open Positions',settings:'Bot Settings'};
+const tabNames = ['trades','signals','research','activity','positions','settings'];
+const tabTitles = {trades:'Recent Trades',signals:'Agent Signals',research:'Research & Edges',activity:'Activity Feed',positions:'Open Positions',settings:'Bot Settings'};
+
+let lastRefreshTime = null;
+let nextCycleTime = null;
 
 function showTab(t) {
-    document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', tabNames[i]===t));
+    document.querySelectorAll('.tab').forEach((el,i) => {
+        const idx = tabNames.indexOf(t);
+        if(idx >= 0) el.classList.toggle('active', tabNames[tabNames.indexOf(t)]===t);
+    });
     tabNames.forEach(n => document.getElementById('panel-'+n).classList.toggle('active', n===t));
     document.getElementById('table-title').textContent = tabTitles[t];
 }
 
 async function fetchJSON(u) { return (await fetch(u)).json(); }
 
+function updateCountdown() {
+    if(!nextCycleTime) return;
+    const now = new Date();
+    const next = new Date(nextCycleTime);
+    const diff = Math.max(0, Math.floor((next - now) / 1000));
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
+    document.getElementById('refresh-countdown').textContent = `Next in: ${mins}:${secs.toString().padStart(2,'0')}`;
+}
+
+function updateLastRefresh() {
+    if(!lastRefreshTime) return;
+    const date = new Date(lastRefreshTime);
+    const h = date.getHours().toString().padStart(2,'0');
+    const m = date.getMinutes().toString().padStart(2,'0');
+    const s = date.getSeconds().toString().padStart(2,'0');
+    document.getElementById('last-updated').textContent = `Last: ${h}:${m}:${s}`;
+}
+
 async function refreshAll() {
+    const startTime = Date.now();
     try {
-        const [perf, trades, signals, live, agents, grades] = await Promise.all([
+        const [perf, trades, signals, live, agents, grades, activity] = await Promise.all([
             fetchJSON('/api/performance'), fetchJSON('/api/trades?limit=30'),
             fetchJSON('/api/signals?limit=30'), fetchJSON('/api/live'),
             fetchJSON('/api/agents'), fetchJSON('/api/grades'),
+            fetchJSON('/api/activity?limit=50'),
         ]);
+
+        lastRefreshTime = new Date().toISOString();
+        updateLastRefresh();
+
+        // Cycle state and countdown
+        if(live.next_cycle) {
+            nextCycleTime = live.next_cycle;
+            updateCountdown();
+        }
+        const state = live.cycle_state || 'idle';
+        const badge = document.getElementById('status-badge');
+        const dot = document.getElementById('status-dot');
+        badge.textContent = state.toUpperCase();
+        badge.className = 'state-badge state-' + state;
+        dot.className = 'dot ' + (state !== 'idle' ? state : '');
+
+        // Cycle stats
+        document.getElementById('stat-markets').textContent = live.markets_scanned || 0;
+        document.getElementById('stat-signals').textContent = live.signals_generated || 0;
+        document.getElementById('stat-opportunities').textContent = live.opportunities_found || 0;
 
         // Stats cards
         const pnl = parseFloat(perf.total_pnl)||0;
@@ -188,7 +304,6 @@ async function refreshAll() {
 
         // Live data
         document.getElementById('live-balance').textContent = '$'+(live.balance||0).toFixed(2);
-        document.getElementById('bot-mode').textContent = live.mode||'?';
         document.getElementById('markets-count').textContent = live.markets_scanned||0;
 
         // Positions
@@ -214,7 +329,35 @@ async function refreshAll() {
         // Research
         const research = await fetchJSON('/api/research');
         renderResearch(research, live.active_opportunities||[]);
+
+        // Activity feed
+        renderActivity(activity);
+
+        const elapsed = Date.now() - startTime;
+        if(elapsed < 500) {
+            // Only log if took time
+        }
     } catch(e) { console.error('Refresh error:', e); }
+}
+
+function renderActivity(items) {
+    const el = document.getElementById('activity-content');
+    if(!items || !items.length) {
+        el.innerHTML = '<div class="empty-msg">No activity yet. Run a trading cycle.</div>';
+        return;
+    }
+    el.innerHTML = items.map(item => {
+        const time = new Date(item.time);
+        const h = time.getHours().toString().padStart(2,'0');
+        const m = time.getMinutes().toString().padStart(2,'0');
+        const s = time.getSeconds().toString().padStart(2,'0');
+        const typeClass = 'type-' + (item.type || 'info');
+        return `<div class="activity-entry">
+            <div class="activity-time">${h}:${m}:${s}</div>
+            <div class="activity-type ${typeClass}">${item.type.toUpperCase()}</div>
+            <div class="activity-msg">${item.message}</div>
+        </div>`;
+    }).join('');
 }
 
 function renderGradeBar(dist) {
@@ -234,10 +377,17 @@ function renderAgents(agents) {
     grid.innerHTML = agents.map(a => {
         const ec = a.avg_edge>0.05?'#00c853':a.avg_edge>0?'#ff9800':'#ff4444';
         const ac = a.accuracy>0.6?'#00c853':a.accuracy>0.4?'#ff9800':'#ff4444';
+        const yesPct = (a.yes_pct * 100).toFixed(0);
+        const noPct = (100 - a.yes_pct * 100).toFixed(0);
         return `<div class="agent-card">
             <div class="name">${a.name.replace(/_/g,' ')}</div>
             <div class="stat" style="color:${ec}">${(a.avg_edge*100).toFixed(2)}%</div>
             <div class="label">Avg Edge</div>
+            <div class="direction-bar">
+                <div class="direction-yes" style="--yes-pct: ${a.yes_pct}; --no-pct: ${1-a.yes_pct};"></div>
+                <div class="direction-no" style="--yes-pct: ${a.yes_pct}; --no-pct: ${1-a.yes_pct};"></div>
+            </div>
+            <div class="direction-label">${yesPct}% YES</div>
             <div style="margin-top:6px;font-size:13px;color:${ac}">${(a.accuracy*100).toFixed(0)}%</div>
             <div class="label">Accuracy (${a.correct||0}W/${a.incorrect||0}L)</div>
             <div style="margin-top:4px;font-size:11px;color:#8899aa;">${a.signal_count} signals | w=${a.recommended_weight?.toFixed(2)||'1.00'}</div>
@@ -272,14 +422,53 @@ function renderSignals(signals) {
     }).join('');
 }
 
+function buildEdgeHistogram(research) {
+    if(!research.length) return '<div class="empty-msg">No edge data</div>';
+
+    // Group by edge ranges
+    const ranges = {};
+    for(let i = -0.2; i <= 0.4; i += 0.05) {
+        const key = (i*100).toFixed(0);
+        ranges[key] = 0;
+    }
+
+    research.forEach(r => {
+        r.signals.forEach(s => {
+            const e = parseFloat(s.edge);
+            const bucket = Math.floor(e * 20) / 20; // Round to nearest 0.05
+            const key = (Math.max(-0.2, Math.min(0.4, bucket))*100).toFixed(0);
+            if(ranges[key] !== undefined) ranges[key]++;
+        });
+    });
+
+    const maxCount = Math.max(...Object.values(ranges));
+    if(maxCount === 0) return '<div style="text-align:center;color:#5a7a9a;">No signals with edges</div>';
+
+    const html = '<div class="histogram"><div class="histogram-bar">' +
+        Object.entries(ranges).map(([k, v]) => {
+            const pct = (v / maxCount) * 100;
+            const edgeVal = parseFloat(k) / 100;
+            return `<div class="histogram-col" style="height:${Math.max(3, pct)}%;"><div class="histogram-value">${v}</div><div class="histogram-label">${edgeVal.toFixed(2)}</div></div>`;
+        }).join('') +
+    '</div></div>';
+    return html;
+}
+
 function renderResearch(research, opportunities) {
     const el = document.getElementById('research-content');
     if(!research.length && !opportunities.length) { el.innerHTML='<div class="empty-msg">No research data yet. Run a trading cycle first.</div>'; return; }
 
     let html = '';
+
+    // Edge histogram
+    if(research.length) {
+        html += '<h3 style="font-size:12px;color:#00d4ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Edge Distribution</h3>';
+        html += buildEdgeHistogram(research);
+    }
+
     // Active opportunities first
     if(opportunities.length) {
-        html += '<h3 style="font-size:12px;color:#00d4ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Active Opportunities</h3>';
+        html += '<h3 style="font-size:12px;color:#00d4ff;text-transform:uppercase;letter-spacing:1px;margin:12px 0 8px;">Active Opportunities</h3>';
         html += opportunities.map(o => {
             const sc = o.side==='yes'?'side-yes':'side-no';
             return `<div class="opp-card">
@@ -354,6 +543,7 @@ fetchJSON('/api/settings').then(s => {
 
 refreshAll();
 setInterval(refreshAll, 10000);
+setInterval(updateCountdown, 1000);
 </script>
 </body>
 </html>
