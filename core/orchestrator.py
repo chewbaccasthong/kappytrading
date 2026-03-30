@@ -10,10 +10,13 @@ This is the brain of the trading system. It:
 """
 
 import asyncio
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import structlog
 
+from config.settings import settings
 from core.kalshi_client import KalshiClient
 from core.models import (
     Market, Signal, TradeOpportunity, Order, Side, OrderStatus, PortfolioSnapshot, Position,
@@ -44,6 +47,39 @@ class TradingOrchestrator:
         # Initialize agents
         self.agents = []
         self._agent_weights: dict[str, float] = {}
+
+    def _validate_config(self):
+        """Check that API credentials are configured before starting."""
+        key_path = Path(settings.kalshi_private_key_path)
+        if not key_path.exists():
+            logger.error(
+                "config_error",
+                message=(
+                    f"Private key file not found: {key_path.absolute()}\n"
+                    "  1. Run: python setup.py\n"
+                    "  2. Or create kalshi_private_key.pem with your private key\n"
+                    "  3. Set KALSHI_PRIVATE_KEY_PATH in .env"
+                ),
+            )
+            sys.exit(1)
+
+        if not settings.kalshi_api_key or settings.kalshi_api_key == "your-api-key-id-here":
+            logger.error(
+                "config_error",
+                message=(
+                    "KALSHI_API_KEY not set in .env\n"
+                    "  1. Go to https://demo.kalshi.co/account/api\n"
+                    "  2. Create an API key and paste the Key ID into .env"
+                ),
+            )
+            sys.exit(1)
+
+        logger.info(
+            "config_ok",
+            api_key=settings.kalshi_api_key[:8] + "...",
+            key_file=str(key_path),
+            base_url=settings.kalshi_base_url,
+        )
 
     async def _init_agents(self):
         """Initialize all research agents."""
@@ -274,6 +310,7 @@ class TradingOrchestrator:
 
     async def run(self, interval_seconds: int = 300):
         """Run the trading bot continuously."""
+        self._validate_config()
         logger.info("bot_starting", interval=interval_seconds, dry_run=self.dry_run)
 
         async with self.kalshi:
@@ -290,6 +327,7 @@ class TradingOrchestrator:
 
     async def run_once(self):
         """Run a single trading cycle (useful for testing)."""
+        self._validate_config()
         async with self.kalshi:
             await self._init_agents()
             await self.run_cycle()
