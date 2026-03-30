@@ -4,11 +4,14 @@ from pydantic import Field
 
 class KalshiSettings(BaseSettings):
     api_key: str = Field(default="", alias="KALSHI_API_KEY")
-    api_secret: str = Field(default="", alias="KALSHI_API_SECRET")
+    # Path to RSA private key file (.pem) — used for request signing
+    private_key_path: str = Field(default="", alias="KALSHI_PRIVATE_KEY_PATH")
+    # Demo environment base URL
     base_url: str = Field(
-        default="https://api.elections.kalshi.com/trade-api/v2",
+        default="https://demo-api.kalshi.co/trade-api/v2",
         alias="KALSHI_BASE_URL",
     )
+    demo: bool = Field(default=True, alias="KALSHI_DEMO")
 
 
 class RiskSettings(BaseSettings):

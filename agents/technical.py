@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import ccxt.async_support as ccxt
 import numpy as np
 import pandas as pd
-import ta
+import talib
 
 from agents.base import BaseAgent
 from core.models import Market, Signal, Side, SignalStrength
@@ -81,45 +81,51 @@ class TechnicalAnalysisAgent(BaseAgent):
         return (symbol, target_price, direction)
 
     def _compute_indicators(self, df: pd.DataFrame) -> dict:
-        """Compute a suite of technical indicators."""
-        close = df["close"]
-        high = df["high"]
-        low = df["low"]
+        """Compute a suite of technical indicators using ta-lib."""
+        close = df["close"].values.astype(float)
+        high = df["high"].values.astype(float)
+        low = df["low"].values.astype(float)
 
         # Trend indicators
-        sma_20 = ta.trend.sma_indicator(close, window=20)
-        sma_50 = ta.trend.sma_indicator(close, window=50)
-        ema_12 = ta.trend.ema_indicator(close, window=12)
-        ema_26 = ta.trend.ema_indicator(close, window=26)
-        macd = ta.trend.macd_diff(close)
+        sma_20 = talib.SMA(close, timeperiod=20)
+        sma_50 = talib.SMA(close, timeperiod=50)
+        ema_12 = talib.EMA(close, timeperiod=12)
+        ema_26 = talib.EMA(close, timeperiod=26)
+        macd, macd_signal, macd_hist = talib.MACD(close, fastperiod=12, slowperiod=26, signalperiod=9)
 
         # Momentum
-        rsi = ta.momentum.rsi(close, window=14)
-        stoch = ta.momentum.stoch(high, low, close)
+        rsi = talib.RSI(close, timeperiod=14)
+        slowk, slowd = talib.STOCH(high, low, close, fastk_period=5, slowk_period=3, slowd_period=3)
 
         # Volatility
-        bb = ta.volatility.BollingerBands(close, window=20, window_dev=2)
-        atr = ta.volatility.average_true_range(high, low, close, window=14)
+        bb_upper, bb_mid, bb_lower = talib.BBANDS(close, timeperiod=20, nbdevup=2, nbdevdn=2)
+        atr = talib.ATR(high, low, close, timeperiod=14)
 
-        current = close.iloc[-1]
+        current = close[-1]
+
+        def _safe(arr):
+            v = arr[-1] if arr is not None else float("nan")
+            return float(v) if not np.isnan(v) else 0.0
+
+        s20, s50 = _safe(sma_20), _safe(sma_50)
 
         return {
             "current_price": current,
-            "sma_20": sma_20.iloc[-1],
-            "sma_50": sma_50.iloc[-1],
-            "ema_12": ema_12.iloc[-1],
-            "ema_26": ema_26.iloc[-1],
-            "macd": macd.iloc[-1],
-            "rsi": rsi.iloc[-1],
-            "stochastic": stoch.iloc[-1],
-            "bb_upper": bb.bollinger_hband().iloc[-1],
-            "bb_lower": bb.bollinger_lband().iloc[-1],
-            "bb_mid": bb.bollinger_mavg().iloc[-1],
-            "atr": atr.iloc[-1],
-            "trend_bullish": current > sma_20.iloc[-1] > sma_50.iloc[-1],
-            "trend_bearish": current < sma_20.iloc[-1] < sma_50.iloc[-1],
-            "volatility_pct": (atr.iloc[-1] / current) * 100 if current > 0 else 0,
-            "price_change_24h": (current - close.iloc[-24]) / close.iloc[-24] if len(close) >= 24 else 0,
+            "sma_20": s20,
+            "sma_50": s50,
+            "ema_12": _safe(ema_12),
+            "ema_26": _safe(ema_26),
+            "macd": _safe(macd_hist),
+            "rsi": _safe(rsi),
+            "stochastic": _safe(slowk),
+            "bb_upper": _safe(bb_upper),
+            "bb_lower": _safe(bb_lower),
+            "bb_mid": _safe(bb_mid),
+            "atr": _safe(atr),
+            "trend_bullish": s20 > 0 and s50 > 0 and current > s20 > s50,
+            "trend_bearish": s20 > 0 and s50 > 0 and current < s20 < s50,
+            "volatility_pct": (_safe(atr) / current) * 100 if current > 0 else 0,
+            "price_change_24h": (current - close[-24]) / close[-24] if len(close) >= 24 else 0,
         }
 
     def _estimate_probability(

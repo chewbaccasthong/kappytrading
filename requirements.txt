@@ -1,11 +1,12 @@
 # Kalshi API & HTTP
 httpx>=0.27.0
 websockets>=12.0
+cryptography>=42.0  # RSA-PSS request signing
 
 # Data & Analysis
 pandas>=2.2.0
 numpy>=1.26.0
-ta>=0.11.0  # Technical analysis library
+ta-lib>=0.6.8  # Technical analysis library
 scipy>=1.12.0  # Statistical functions
 
 # Sentiment & NLP
