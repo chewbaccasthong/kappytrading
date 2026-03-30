@@ -1,0 +1,36 @@
+# Kalshi API & HTTP
+httpx>=0.27.0
+websockets>=12.0
+
+# Data & Analysis
+pandas>=2.2.0
+numpy>=1.26.0
+ta>=0.11.0  # Technical analysis library
+scipy>=1.12.0  # Statistical functions
+
+# Sentiment & NLP
+textblob>=0.18.0
+
+# Crypto data sources
+ccxt>=4.2.0  # Crypto exchange data
+pycoingecko>=3.1.0  # CoinGecko API
+
+# Database
+sqlalchemy>=2.0.0
+aiosqlite>=0.20.0
+
+# Configuration & Environment
+python-dotenv>=1.0.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+
+# Logging & Monitoring
+rich>=13.7.0
+structlog>=24.1.0
+
+# Scheduling
+apscheduler>=3.10.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
