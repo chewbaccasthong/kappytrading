@@ -28,6 +28,7 @@ from agents.microstructure import MicrostructureAgent
 from agents.arbitrage import ArbitrageAgent
 from strategies.signal_aggregator import SignalAggregator
 from strategies.risk_manager import RiskManager
+from strategies.trade_grader import TradeGrader
 from utils.database import Database
 from config.settings import settings
 
@@ -43,10 +44,18 @@ class TradingOrchestrator:
         self.aggregator = SignalAggregator(min_agents=2)
         self.risk_manager = RiskManager()
         self.db = Database()
+        self.grader = TradeGrader(self.db)
 
         # Initialize agents
         self.agents = []
         self._agent_weights: dict[str, float] = {}
+
+        # Track live state for dashboard
+        self._last_markets: list[Market] = []
+        self._last_signals: dict[str, list[Signal]] = {}
+        self._last_opportunities: list[TradeOpportunity] = []
+        self._live_balance: float = 0.0
+        self._live_positions: list[Position] = []
 
     def _validate_config(self):
         """Check that API credentials are configured before starting."""
@@ -82,7 +91,7 @@ class TradingOrchestrator:
         )
 
     async def _init_agents(self):
-        """Initialize all research agents."""
+        """Initialize all research agents, applying learned weights."""
         self.agents = [
             TechnicalAnalysisAgent(weight=1.2),
             SentimentAgent(weight=0.8),
@@ -90,31 +99,51 @@ class TradingOrchestrator:
             MicrostructureAgent(kalshi_client=self.kalshi, weight=1.1),
             ArbitrageAgent(weight=1.5),
         ]
+
+        # Apply learned weights from grader if available
+        recommended = self.grader.get_recommended_weights()
+        if recommended:
+            for agent in self.agents:
+                if agent.name in recommended:
+                    old_w = agent.weight
+                    agent.weight = recommended[agent.name]
+                    if abs(old_w - agent.weight) > 0.1:
+                        logger.info(
+                            "weight_adjusted",
+                            agent=agent.name,
+                            old=f"{old_w:.2f}",
+                            new=f"{agent.weight:.2f}",
+                        )
+
         self._agent_weights = {a.name: a.weight for a in self.agents}
-        logger.info("agents_initialized", count=len(self.agents))
+        logger.info("agents_initialized", count=len(self.agents), weights=self._agent_weights)
 
     async def _get_portfolio(self) -> PortfolioSnapshot:
         """Get current portfolio state."""
         if self.dry_run:
-            return PortfolioSnapshot(
+            snapshot = PortfolioSnapshot(
                 balance=1000.0,
                 positions=[],
                 daily_pnl=0.0,
                 total_pnl=0.0,
                 open_orders=[],
             )
+        else:
+            balance = await self.kalshi.get_balance()
+            positions = await self.kalshi.get_positions()
+            open_orders = await self.kalshi.get_open_orders()
+            snapshot = PortfolioSnapshot(
+                balance=balance,
+                positions=positions,
+                daily_pnl=self.risk_manager.get_daily_stats()["daily_pnl"],
+                total_pnl=0.0,
+                open_orders=open_orders,
+            )
 
-        balance = await self.kalshi.get_balance()
-        positions = await self.kalshi.get_positions()
-        open_orders = await self.kalshi.get_open_orders()
-
-        return PortfolioSnapshot(
-            balance=balance,
-            positions=positions,
-            daily_pnl=self.risk_manager.get_daily_stats()["daily_pnl"],
-            total_pnl=0.0,  # computed from DB
-            open_orders=open_orders,
-        )
+        # Store for dashboard access
+        self._live_balance = snapshot.balance
+        self._live_positions = snapshot.positions
+        return snapshot
 
     async def _discover_markets(self) -> list[Market]:
         """Find all open crypto prediction markets on Kalshi."""
@@ -155,9 +184,12 @@ class TradingOrchestrator:
     async def _find_opportunities(self, markets: list[Market]) -> list[TradeOpportunity]:
         """Analyze all markets and find trade opportunities."""
         opportunities = []
+        self._last_signals = {}
 
         for market in markets:
             signals = await self._analyze_market(market)
+            if signals:
+                self._last_signals[market.ticker] = signals
             if not signals:
                 continue
 
@@ -284,11 +316,13 @@ class TradingOrchestrator:
 
         # Discover and analyze markets
         markets = await self._discover_markets()
+        self._last_markets = markets
         if not markets:
             logger.info("no_crypto_markets_found")
             return
 
         opportunities = await self._find_opportunities(markets)
+        self._last_opportunities = opportunities
         if not opportunities:
             logger.info("no_opportunities_found")
             return
@@ -338,13 +372,51 @@ class TradingOrchestrator:
                     await agent.cleanup()
 
     def get_status(self) -> dict:
-        """Get bot status summary."""
+        """Get full bot status for the dashboard."""
         perf = self.db.get_performance_summary()
         daily = self.risk_manager.get_daily_stats()
         return {
             "mode": "dry_run" if self.dry_run else "live",
             "agents": len(self.agents),
+            "agent_weights": self._agent_weights,
             "performance": perf,
             "daily_stats": daily,
             "recent_trades": self.db.get_recent_trades(10),
+            "balance": self._live_balance,
+            "positions": [
+                {
+                    "ticker": p.market_ticker,
+                    "side": p.side.value,
+                    "qty": p.quantity,
+                    "avg_price": p.avg_price,
+                    "current_price": p.current_price,
+                    "unrealized_pnl": p.unrealized_pnl,
+                }
+                for p in self._live_positions
+            ],
+            "markets_scanned": len(self._last_markets),
+            "active_opportunities": [
+                {
+                    "ticker": o.market.ticker,
+                    "title": o.market.title,
+                    "side": o.side.value,
+                    "entry_price": o.entry_price,
+                    "edge": o.edge,
+                    "confidence": o.confidence,
+                    "ev": o.expected_value,
+                    "signals": [
+                        {
+                            "agent": s.agent_name,
+                            "side": s.side.value,
+                            "confidence": s.confidence,
+                            "edge": s.edge,
+                            "reasoning": s.reasoning,
+                        }
+                        for s in o.signals
+                    ],
+                }
+                for o in self._last_opportunities[:10]
+            ],
+            "grade_summary": self.grader.get_grade_summary(),
+            "agent_report": self.grader.get_agent_report(),
         }

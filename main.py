@@ -5,6 +5,7 @@ Usage:
     python main.py --live       # Run with real money (careful!)
     python main.py --once       # Run a single cycle then exit
     python main.py --status     # Show performance stats
+    python main.py --dashboard  # Run bot + web dashboard together
 """
 
 import argparse
@@ -85,7 +86,8 @@ def show_status():
         console.print(trade_table)
 
 
-async def run_bot(live: bool = False, once: bool = False, interval: int = 300):
+async def run_bot(live: bool = False, once: bool = False, interval: int = 300,
+                  dashboard: bool = False, dashboard_port: int = 5000):
     """Start the trading bot."""
     show_banner()
 
@@ -104,6 +106,22 @@ async def run_bot(live: bool = False, once: bool = False, interval: int = 300):
 
     orchestrator = TradingOrchestrator(dry_run=not live)
 
+    # Start web dashboard in background thread if requested
+    if dashboard:
+        import threading
+        from dashboard.app import app, set_orchestrator
+
+        set_orchestrator(orchestrator)
+        dash_thread = threading.Thread(
+            target=lambda: app.run(
+                host="0.0.0.0", port=dashboard_port, debug=False, use_reloader=False
+            ),
+            daemon=True,
+        )
+        dash_thread.start()
+        console.print(f"[bold green]Dashboard running at http://localhost:{dashboard_port}[/bold green]")
+        console.print()
+
     if once:
         await orchestrator.run_once()
     else:
@@ -116,6 +134,8 @@ def main():
     parser.add_argument("--once", action="store_true", help="Run a single cycle then exit")
     parser.add_argument("--status", action="store_true", help="Show performance stats")
     parser.add_argument("--interval", type=int, default=300, help="Seconds between cycles (default: 300)")
+    parser.add_argument("--dashboard", action="store_true", help="Also start the web dashboard")
+    parser.add_argument("--dashboard-port", type=int, default=5000, help="Dashboard port (default: 5000)")
 
     args = parser.parse_args()
 
@@ -125,7 +145,13 @@ def main():
         show_status()
         return
 
-    asyncio.run(run_bot(live=args.live, once=args.once, interval=args.interval))
+    asyncio.run(run_bot(
+        live=args.live,
+        once=args.once,
+        interval=args.interval,
+        dashboard=args.dashboard,
+        dashboard_port=args.dashboard_port,
+    ))
 
 
 if __name__ == "__main__":
