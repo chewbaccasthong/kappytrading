@@ -134,6 +134,7 @@ class Database:
                     "exit": t.exit_price,
                     "pnl": t.pnl,
                     "edge": t.edge,
+                    "confidence": t.confidence,
                     "status": t.status,
                     "created": str(t.created_at),
                 }

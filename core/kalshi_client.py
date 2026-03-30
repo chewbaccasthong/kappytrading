@@ -39,7 +39,7 @@ class KalshiClient:
         self._client: Optional[httpx.AsyncClient] = None
 
     def _load_private_key(self):
-        """Load RSA private key from PEM file."""
+        """Load RSA private key from PEM file, auto-fixing common format issues."""
         if self._private_key is not None:
             return
         path = Path(self._private_key_path)
@@ -48,8 +48,23 @@ class KalshiClient:
                 f"Kalshi private key not found at: {path}\n"
                 "Set KALSHI_PRIVATE_KEY_PATH in your .env file."
             )
-        with open(path, "rb") as f:
-            self._private_key = serialization.load_pem_private_key(f.read(), password=None)
+
+        raw = path.read_text(encoding="utf-8")
+
+        # Fix common issues: extra blank lines, Windows \r\n, trailing whitespace
+        lines = [line.strip() for line in raw.splitlines() if line.strip()]
+        cleaned = "\n".join(lines) + "\n"
+
+        try:
+            self._private_key = serialization.load_pem_private_key(
+                cleaned.encode("utf-8"), password=None
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Failed to load private key from {path}.\n"
+                f"Make sure the file contains a valid PEM key with no extra blank lines.\n"
+                f"Error: {e}"
+            ) from e
 
     def _sign_request(self, method: str, path: str) -> dict:
         """Generate RSA-PSS signed request headers.

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kappy Trading Bot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0a0e17;
+            color: #e0e6ed;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #0f1923 0%, #1a2332 100%);
+            border-bottom: 1px solid #1e2d3d;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 20px; color: #00d4ff; font-weight: 600; }
+        .header .status {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            font-size: 13px;
+            color: #8899aa;
+        }
+        .header .status .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #00c853;
+            display: inline-block;
+            margin-right: 4px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            padding: 20px 24px;
+        }
+
+        .card {
+            background: #111923;
+            border: 1px solid #1e2d3d;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .card h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #5a7a9a;
+            margin-bottom: 8px;
+        }
+        .card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #e0e6ed;
+        }
+        .card .value.positive { color: #00c853; }
+        .card .value.negative { color: #ff4444; }
+        .card .sub { font-size: 12px; color: #5a7a9a; margin-top: 4px; }
+
+        .wide { grid-column: span 2; }
+        .full { grid-column: span 4; }
+
+        .section {
+            padding: 0 24px 20px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .section h2 {
+            font-size: 16px;
+            color: #00d4ff;
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+        }
+        .tab {
+            padding: 6px 14px;
+            background: #1a2332;
+            border: 1px solid #1e2d3d;
+            border-radius: 6px;
+            color: #8899aa;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .tab:hover, .tab.active {
+            background: #00d4ff22;
+            color: #00d4ff;
+            border-color: #00d4ff44;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #5a7a9a;
+            border-bottom: 1px solid #1e2d3d;
+            background: #0d1520;
+        }
+        td {
+            padding: 10px 12px;
+            font-size: 13px;
+            border-bottom: 1px solid #111923;
+        }
+        tr:hover { background: #0d1520; }
+        .side-yes { color: #00c853; font-weight: 600; }
+        .side-no { color: #ff4444; font-weight: 600; }
+        .edge-high { color: #00c853; }
+        .edge-low { color: #ff9800; }
+        .badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-open { background: #00d4ff22; color: #00d4ff; }
+        .badge-closed { background: #5a7a9a22; color: #5a7a9a; }
+        .badge-win { background: #00c85322; color: #00c853; }
+        .badge-loss { background: #ff444422; color: #ff4444; }
+
+        /* Settings panel */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .setting-item label {
+            font-size: 11px;
+            color: #5a7a9a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .setting-item input {
+            background: #0a0e17;
+            border: 1px solid #1e2d3d;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #e0e6ed;
+            font-size: 14px;
+            outline: none;
+        }
+        .setting-item input:focus { border-color: #00d4ff; }
+        .btn {
+            padding: 8px 20px;
+            background: #00d4ff;
+            color: #0a0e17;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn-save { margin-top: 12px; }
+
+        /* Agent cards */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+        }
+        .agent-card {
+            background: #0d1520;
+            border: 1px solid #1e2d3d;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .agent-card .name {
+            font-size: 12px;
+            color: #00d4ff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .agent-card .stat { font-size: 22px; font-weight: 700; }
+        .agent-card .label { font-size: 11px; color: #5a7a9a; margin-top: 4px; }
+
+        .refresh-note {
+            font-size: 11px;
+            color: #5a7a9a;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>KAPPY TRADING BOT</h1>
+        <div class="status">
+            <span class="refresh-note">Auto-refresh: 10s</span>
+            <span><span class="dot"></span>Dashboard Active</span>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid" id="stats-cards">
+        <div class="card">
+            <h3>Total PnL</h3>
+            <div class="value" id="total-pnl">$0.00</div>
+            <div class="sub" id="total-trades">0 trades</div>
+        </div>
+        <div class="card">
+            <h3>Win Rate</h3>
+            <div class="value" id="win-rate">0%</div>
+            <div class="sub" id="win-loss">0W / 0L</div>
+        </div>
+        <div class="card">
+            <h3>Avg Edge</h3>
+            <div class="value" id="avg-edge">0.00%</div>
+            <div class="sub">Across all trades</div>
+        </div>
+        <div class="card">
+            <h3>Avg Win / Loss</h3>
+            <div class="value" id="avg-win-loss">$0 / $0</div>
+            <div class="sub" id="profit-factor">Profit factor: -</div>
+        </div>
+    </div>
+
+    <!-- Agent Performance -->
+    <div class="section">
+        <div class="section-header">
+            <h2>Agent Performance</h2>
+        </div>
+        <div class="agent-grid" id="agent-grid">
+            <div class="agent-card"><div class="name">Loading...</div></div>
+        </div>
+    </div>
+
+    <!-- Tabs Section -->
+    <div class="section">
+        <div class="section-header">
+            <h2 id="table-title">Recent Trades</h2>
+            <div class="tabs">
+                <div class="tab active" onclick="showTab('trades')">Trades</div>
+                <div class="tab" onclick="showTab('signals')">Signals</div>
+                <div class="tab" onclick="showTab('settings')">Settings</div>
+            </div>
+        </div>
+
+        <!-- Trades Table -->
+        <div class="card" id="trades-panel">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Market</th>
+                        <th>Side</th>
+                        <th>Qty</th>
+                        <th>Entry</th>
+                        <th>PnL</th>
+                        <th>Edge</th>
+                        <th>Confidence</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="trades-body">
+                    <tr><td colspan="9" style="text-align:center;color:#5a7a9a;padding:40px;">No trades yet. Start the bot with: python main.py</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Signals Table -->
+        <div class="card" id="signals-panel" style="display:none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Agent</th>
+                        <th>Market</th>
+                        <th>Side</th>
+                        <th>Confidence</th>
+                        <th>Est. Prob</th>
+                        <th>Edge</th>
+                        <th>Reasoning</th>
+                    </tr>
+                </thead>
+                <tbody id="signals-body">
+                    <tr><td colspan="8" style="text-align:center;color:#5a7a9a;padding:40px;">No signals yet</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="card" id="settings-panel" style="display:none;">
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <label>Max Position Size (contracts)</label>
+                    <input type="number" id="set-max-position" value="10">
+                </div>
+                <div class="setting-item">
+                    <label>Max Daily Loss ($)</label>
+                    <input type="number" id="set-max-loss" value="50">
+                </div>
+                <div class="setting-item">
+                    <label>Max Open Positions</label>
+                    <input type="number" id="set-max-positions" value="5">
+                </div>
+                <div class="setting-item">
+                    <label>Min Edge Threshold</label>
+                    <input type="number" id="set-min-edge" value="0.05" step="0.01">
+                </div>
+            </div>
+            <button class="btn btn-save" onclick="saveSettings()">Save Settings</button>
+            <span id="save-status" style="margin-left:12px;font-size:12px;color:#00c853;"></span>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'trades';
+
+        function showTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab')[['trades','signals','settings'].indexOf(tab)].classList.add('active');
+
+            document.getElementById('trades-panel').style.display = tab === 'trades' ? '' : 'none';
+            document.getElementById('signals-panel').style.display = tab === 'signals' ? '' : 'none';
+            document.getElementById('settings-panel').style.display = tab === 'settings' ? '' : 'none';
+
+            const titles = { trades: 'Recent Trades', signals: 'Agent Signals', settings: 'Bot Settings' };
+            document.getElementById('table-title').textContent = titles[tab];
+        }
+
+        async function fetchJSON(url) {
+            const resp = await fetch(url);
+            return resp.json();
+        }
+
+        function fmt$(val) {
+            const v = parseFloat(val) || 0;
+            const cls = v > 0 ? 'positive' : v < 0 ? 'negative' : '';
+            return `<span class="${cls}">$${v.toFixed(2)}</span>`;
+        }
+
+        function fmtPct(val) {
+            return (parseFloat(val) * 100).toFixed(2) + '%';
+        }
+
+        async function refreshPerformance() {
+            const data = await fetchJSON('/api/performance');
+            const pnl = parseFloat(data.total_pnl) || 0;
+            const el = document.getElementById('total-pnl');
+            el.textContent = '$' + pnl.toFixed(2);
+            el.className = 'value ' + (pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : '');
+
+            document.getElementById('total-trades').textContent = (data.total_trades || 0) + ' trades';
+            document.getElementById('win-rate').textContent = ((data.win_rate || 0) * 100).toFixed(1) + '%';
+            document.getElementById('win-loss').textContent = (data.win_count || 0) + 'W / ' + (data.loss_count || 0) + 'L';
+            document.getElementById('avg-edge').textContent = ((data.avg_edge || 0) * 100).toFixed(2) + '%';
+
+            const avgWin = parseFloat(data.avg_win) || 0;
+            const avgLoss = parseFloat(data.avg_loss) || 0;
+            document.getElementById('avg-win-loss').innerHTML =
+                `<span class="positive">$${avgWin.toFixed(2)}</span> / <span class="negative">$${Math.abs(avgLoss).toFixed(2)}</span>`;
+
+            const pf = avgLoss !== 0 ? Math.abs(avgWin / avgLoss).toFixed(2) : '-';
+            document.getElementById('profit-factor').textContent = 'Profit factor: ' + pf;
+        }
+
+        async function refreshTrades() {
+            const trades = await fetchJSON('/api/trades?limit=30');
+            const body = document.getElementById('trades-body');
+            if (!trades.length) {
+                body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#5a7a9a;padding:40px;">No trades yet. Start the bot with: python main.py</td></tr>';
+                return;
+            }
+            body.innerHTML = trades.map(t => {
+                const pnl = t.pnl !== null ? t.pnl : null;
+                const pnlStr = pnl !== null ? '$' + parseFloat(pnl).toFixed(2) : '-';
+                const pnlClass = pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : '';
+                const sideClass = t.side === 'yes' ? 'side-yes' : 'side-no';
+                const statusBadge = t.status === 'open'
+                    ? '<span class="badge badge-open">OPEN</span>'
+                    : pnl > 0
+                        ? '<span class="badge badge-win">WIN</span>'
+                        : '<span class="badge badge-loss">LOSS</span>';
+                const edgeClass = Math.abs(t.edge) > 0.08 ? 'edge-high' : 'edge-low';
+                return `<tr>
+                    <td>${(t.created || '').substring(0, 16)}</td>
+                    <td>${(t.ticker || '').substring(0, 25)}</td>
+                    <td class="${sideClass}">${(t.side || '').toUpperCase()}</td>
+                    <td>${t.qty}</td>
+                    <td>$${parseFloat(t.entry).toFixed(2)}</td>
+                    <td class="${pnlClass}">${pnlStr}</td>
+                    <td class="${edgeClass}">${(parseFloat(t.edge) * 100).toFixed(2)}%</td>
+                    <td>${(parseFloat(t.confidence || 0) * 100).toFixed(0)}%</td>
+                    <td>${statusBadge}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function refreshSignals() {
+            const signals = await fetchJSON('/api/signals?limit=30');
+            const body = document.getElementById('signals-body');
+            if (!signals.length) {
+                body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#5a7a9a;padding:40px;">No signals yet</td></tr>';
+                return;
+            }
+            body.innerHTML = signals.map(s => {
+                const sideClass = s.side === 'yes' ? 'side-yes' : 'side-no';
+                const edgeClass = Math.abs(s.edge) > 0.08 ? 'edge-high' : 'edge-low';
+                return `<tr>
+                    <td>${(s.time || '').substring(0, 16)}</td>
+                    <td>${s.agent}</td>
+                    <td>${(s.market || '').substring(0, 25)}</td>
+                    <td class="${sideClass}">${(s.side || '').toUpperCase()}</td>
+                    <td>${(parseFloat(s.confidence) * 100).toFixed(0)}%</td>
+                    <td>${(parseFloat(s.probability) * 100).toFixed(1)}%</td>
+                    <td class="${edgeClass}">${(parseFloat(s.edge) * 100).toFixed(2)}%</td>
+                    <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${s.reasoning || ''}">${s.reasoning || ''}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function refreshAgents() {
+            const agents = await fetchJSON('/api/agents');
+            const grid = document.getElementById('agent-grid');
+            if (!agents.length) {
+                grid.innerHTML = '<div class="agent-card"><div class="name">No data yet</div><div class="stat">-</div></div>';
+                return;
+            }
+            grid.innerHTML = agents.map(a => {
+                const edgeColor = a.avg_edge > 0.05 ? '#00c853' : a.avg_edge > 0 ? '#ff9800' : '#ff4444';
+                return `<div class="agent-card">
+                    <div class="name">${a.name.replace('_', ' ')}</div>
+                    <div class="stat" style="color:${edgeColor}">${(a.avg_edge * 100).toFixed(2)}%</div>
+                    <div class="label">Avg Edge</div>
+                    <div style="margin-top:8px;font-size:14px;color:#e0e6ed;">${a.signal_count}</div>
+                    <div class="label">Signals</div>
+                    <div style="margin-top:4px;font-size:13px;color:#8899aa;">${(a.avg_confidence * 100).toFixed(0)}% conf</div>
+                </div>`;
+            }).join('');
+        }
+
+        async function refreshSettings() {
+            const s = await fetchJSON('/api/settings');
+            document.getElementById('set-max-position').value = s.max_position_size;
+            document.getElementById('set-max-loss').value = s.max_daily_loss;
+            document.getElementById('set-max-positions').value = s.max_open_positions;
+            document.getElementById('set-min-edge').value = s.min_edge_threshold;
+        }
+
+        async function saveSettings() {
+            const data = {
+                max_position_size: parseInt(document.getElementById('set-max-position').value),
+                max_daily_loss: parseInt(document.getElementById('set-max-loss').value),
+                max_open_positions: parseInt(document.getElementById('set-max-positions').value),
+                min_edge_threshold: parseFloat(document.getElementById('set-min-edge').value),
+            };
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            const el = document.getElementById('save-status');
+            el.textContent = 'Saved!';
+            setTimeout(() => el.textContent = '', 2000);
+        }
+
+        async function refreshAll() {
+            try {
+                await Promise.all([
+                    refreshPerformance(),
+                    refreshTrades(),
+                    refreshSignals(),
+                    refreshAgents(),
+                ]);
+            } catch (e) {
+                console.error('Refresh error:', e);
+            }
+        }
+
+        // Initial load
+        refreshAll();
+        refreshSettings();
+
+        // Auto-refresh every 10 seconds
+        setInterval(refreshAll, 10000);
+    </script>
+</body>
+</html>
