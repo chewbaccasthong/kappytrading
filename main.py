@@ -91,15 +91,15 @@ async def run_bot(live: bool = False, once: bool = False, interval: int = 300):
 
     if live:
         console.print("[bold red]LIVE TRADING MODE[/bold red] - Real money at risk!")
-        if not settings.kalshi.api_key or not settings.kalshi.api_secret:
-            console.print("[red]Error: KALSHI_API_KEY and KALSHI_API_SECRET must be set in .env[/red]")
+        if not settings.kalshi_api_key or not settings.kalshi_private_key_path:
+            console.print("[red]Error: KALSHI_API_KEY and KALSHI_PRIVATE_KEY_PATH must be set in .env[/red]")
             sys.exit(1)
     else:
         console.print("[bold yellow]DRY RUN MODE[/bold yellow] - No real trades will be placed")
 
-    console.print(f"[dim]Interval: {interval}s | Min edge: {settings.risk.min_edge_threshold}[/dim]")
-    console.print(f"[dim]Max position: {settings.risk.max_position_size} contracts[/dim]")
-    console.print(f"[dim]Max daily loss: ${settings.risk.max_daily_loss}[/dim]")
+    console.print(f"[dim]Interval: {interval}s | Min edge: {settings.min_edge_threshold}[/dim]")
+    console.print(f"[dim]Max position: {settings.max_position_size} contracts[/dim]")
+    console.print(f"[dim]Max daily loss: ${settings.max_daily_loss}[/dim]")
     console.print()
 
     orchestrator = TradingOrchestrator(dry_run=not live)

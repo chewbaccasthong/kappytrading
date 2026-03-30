@@ -32,9 +32,9 @@ class KalshiClient:
         private_key_path: Optional[str] = None,
         base_url: Optional[str] = None,
     ):
-        self.api_key = api_key or settings.kalshi.api_key
-        self._private_key_path = private_key_path or settings.kalshi.private_key_path
-        self.base_url = (base_url or settings.kalshi.base_url).rstrip("/")
+        self.api_key = api_key or settings.kalshi_api_key
+        self._private_key_path = private_key_path or settings.kalshi_private_key_path
+        self.base_url = (base_url or settings.kalshi_base_url).rstrip("/")
         self._private_key = None
         self._client: Optional[httpx.AsyncClient] = None
 

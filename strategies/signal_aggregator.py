@@ -24,7 +24,7 @@ class SignalAggregator:
             min_edge: Minimum edge required (defaults to settings)
         """
         self.min_agents = min_agents
-        self.min_edge = min_edge or settings.risk.min_edge_threshold
+        self.min_edge = min_edge or settings.min_edge_threshold
 
     def aggregate(
         self, market: Market, signals: list[Signal], agent_weights: dict[str, float] | None = None

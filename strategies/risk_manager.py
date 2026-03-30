@@ -28,9 +28,9 @@ class RiskManager:
         max_open_positions: int | None = None,
         max_portfolio_exposure: float = 0.5,  # max 50% of balance at risk
     ):
-        self.max_position_size = max_position_size or settings.risk.max_position_size
-        self.max_daily_loss = max_daily_loss or settings.risk.max_daily_loss
-        self.max_open_positions = max_open_positions or settings.risk.max_open_positions
+        self.max_position_size = max_position_size or settings.max_position_size
+        self.max_daily_loss = max_daily_loss or settings.max_daily_loss
+        self.max_open_positions = max_open_positions or settings.max_open_positions
         self.max_portfolio_exposure = max_portfolio_exposure
         self._daily_pnl: dict[date, float] = {}
         self._trades_today: dict[date, int] = {}

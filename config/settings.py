@@ -2,36 +2,30 @@ from pydantic_settings import BaseSettings
 from pydantic import Field
 
 
-class KalshiSettings(BaseSettings):
-    api_key: str = Field(default="", alias="KALSHI_API_KEY")
-    # Path to RSA private key file (.pem) — used for request signing
-    private_key_path: str = Field(default="", alias="KALSHI_PRIVATE_KEY_PATH")
-    # Demo environment base URL
-    base_url: str = Field(
-        default="https://demo-api.kalshi.co/trade-api/v2",
-        alias="KALSHI_BASE_URL",
-    )
-    demo: bool = Field(default=True, alias="KALSHI_DEMO")
-
-
-class RiskSettings(BaseSettings):
-    max_position_size: int = Field(default=50, alias="MAX_POSITION_SIZE")
-    max_daily_loss: int = Field(default=100, alias="MAX_DAILY_LOSS")
-    max_open_positions: int = Field(default=10, alias="MAX_OPEN_POSITIONS")
-    min_edge_threshold: float = Field(default=0.05, alias="MIN_EDGE_THRESHOLD")
-
-
 class Settings(BaseSettings):
-    kalshi: KalshiSettings = KalshiSettings()
-    risk: RiskSettings = RiskSettings()
-    database_url: str = Field(
-        default="sqlite+aiosqlite:///data/trades.db", alias="DATABASE_URL"
-    )
-    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    # Kalshi API
+    kalshi_api_key: str = Field(default="")
+    kalshi_private_key_path: str = Field(default="kalshi_private_key.pem")
+    kalshi_base_url: str = Field(default="https://demo-api.kalshi.co/trade-api/v2")
+    kalshi_demo: bool = Field(default=True)
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    # Risk Management
+    max_position_size: int = Field(default=50)
+    max_daily_loss: int = Field(default=100)
+    max_open_positions: int = Field(default=10)
+    min_edge_threshold: float = Field(default=0.05)
+
+    # Database
+    database_url: str = Field(default="sqlite+aiosqlite:///data/trades.db")
+
+    # Logging
+    log_level: str = Field(default="INFO")
+
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
 settings = Settings()
