@@ -136,7 +136,7 @@ class TradingOrchestrator:
         """Get current portfolio state."""
         if self.dry_run:
             snapshot = PortfolioSnapshot(
-                balance=1000.0,
+                balance=100.0,
                 positions=[],
                 daily_pnl=0.0,
                 total_pnl=0.0,
